@@ -1,0 +1,51 @@
+#!/usr/bin/env node
+//var debug = require('debug')('microblog');
+var app = require('../app');
+
+app.set('port', process.env.PORT || 8086);
+var server = app.listen(app.get('port'), function() {
+    console.log('Express server listening on port ' + server.address().port);
+});
+var io = require('socket.io')(server);
+
+//socket.io server处理
+io.on('connection', function (socket) {
+    var socketName = null;
+    nameI = Math.round(1000*(Math.random()));
+    //name 标识
+    socket.emit('open', { name: nameI });
+    
+    socket.on('urlReq', function (data) {
+    	var id = data.id;
+    	socketName = data.socketName;
+    	var scriptInputPara = data.para;
+
+        var data1 = require('fs').readFileSync('setting.conf', 'utf-8');
+    	fileData = JSON.parse(data1);
+    	fileName = fileData.scriptList[id].path;
+    	bin = fileData.scriptList[id].bin;
+
+    	//分行发送
+    	var spawn = require('child_process').spawn;
+        scriptInputPara.unshift(fileName);
+        console.log(scriptInputPara);
+	    var proc = spawn(bin, scriptInputPara);
+        var readline = require('readline');
+        readline.createInterface({
+            input: proc.stdout,
+            terminal: false
+        }).on('line', function(line) {
+           socket.emit('stdout',{text:line,name:socketName}); 
+        });
+        readline.createInterface({
+            input: proc.stderr,
+            terminal: false
+        }).on('line', function(line) {
+           socket.emit('stderr',{text:line,name:socketName}); 
+        });
+	    proc.on('close', function(code) {
+            console.log('process exited with code ' + code);
+            socket.emit('close',{code:code,name:socketName});
+		});
+    }); 
+});

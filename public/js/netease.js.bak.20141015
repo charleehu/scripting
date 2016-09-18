@@ -1,0 +1,79 @@
+var selectedscriptName = null;
+var selectScriptId = null;
+var socketIoName = null;//socket.io连接标识
+var socket = null;
+
+//响应运行按钮
+function onRunClick(){
+    document.getElementById("result").innerHTML = ""; 
+    responseForClick();
+}
+
+function responseForClick(){    
+    var runPara = getInputScriptRunParameter();//输入的参数获取
+    var scriptName = selectedscriptName;
+    var scriptId = selectScriptId;
+
+    //发送执行脚本的请求
+    socket.emit('urlReq', { id:scriptId,para:runPara,socketName:socketIoName});
+}
+
+//响应脚本选择
+function onHerfClick(scriptId,scriptName,paramName){
+    document.getElementById("result").innerHTML = "";//清空原来记录
+    selectScriptId = scriptId;
+    selectedscriptName = scriptName;	
+	document.getElementById("resultTitle").innerHTML= scriptName + "脚本运行情况";
+    document.getElementById("form").innerHTML = "";
+    if(paramName!="000"){
+        var paramArray = paramName.split(",");        
+        for(var i=0;i<paramArray.length;i++){
+            var currentParaContent = paramArray[i].split(" ");
+            if(currentParaContent.length==1){
+                //没有默认值的情况
+                document.getElementById("form").innerHTML += (currentParaContent[i]+'：<input type=text>'+'<br>');
+            }else{
+                //有默认值的情况
+                // document.getElementById("form").innerHTML += (paramArray[i]+'：<input type=text>'+'<br>');
+
+                // //currentParaContent[0]为输入框的名字，currentParaContent[1]为输入框参数类型和默认值需要2次切割
+                var defaultValueAndTypeList = currentParaContent[1].split(":");
+                document.getElementById("form").innerHTML += (paramArray[i]+
+                '<input type=text value="'+defaultValueAndTypeList[1]+'" onfocus="if(this.value=="'+defaultValueAndTypeList[1]+'"){this.value="";};" 
+                onblur="if(this.value==""){this.value='+defaultValueAndTypeList[1]+';};">'+'<br />');
+            }
+            
+        }
+    }    
+    document.getElementById("form").innerHTML +=('<button onclick=onRunClick()>运行</button>');    	
+}
+
+function getInputScriptRunParameter(){
+    var inputs = $("#form").children("input");
+
+    //遍历获取各个参数
+    var para = "";
+    inputs.each(
+        function(){
+            para = para+" "+$(this).val();  
+        }
+    );
+    return  para;
+}
+
+$(function () {
+    var result = $('#result');
+    // socket = io('http://localhost:3333');
+    socket = io('223.252.196.144:8086');
+   
+    //收到server的连接确认
+    socket.on('open',function(json){
+        socketIoName = json.name; 
+    });
+
+    //监听脚本运行后发出的消息
+    //--备用代码--socket.on('response'+socketIoName.toString(),function(json){
+    socket.on('response',function(json){
+        $("#result").append(" <b>"+json.text+"</b><br/>");      
+    });
+});
